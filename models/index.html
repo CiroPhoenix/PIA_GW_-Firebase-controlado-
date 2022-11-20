@@ -1,0 +1,517 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Proyecto</title>
+    <style>
+      body {
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <button id="button-login">Login with Google</button>
+    <button id="button-log-out">Log out</button>
+    <script type="module">
+      import * as THREE from "./three.module.js";
+      import { OrbitControls } from "./OrbitControls.js";
+      import { GLTFLoader } from "./GLTFLoader.js";
+      import { STLLoader } from "./STLLoader.js";
+      // Import the functions you need from the SDKs you need
+      import { initializeApp } from "https://www.gstatic.com/firebasejs/9.13.0/firebase-app.js";
+
+      import {
+        getAuth,
+        signInWithPopup,
+        GoogleAuthProvider,
+        signOut,
+        onAuthStateChanged,
+      } from "https://www.gstatic.com/firebasejs/9.13.0/firebase-auth.js";
+
+      import {
+        getDatabase,
+        ref,
+        onValue,
+        set,
+      } from "https://www.gstatic.com/firebasejs/9.13.0/firebase-database.js";
+
+      const firebaseConfig = {
+        apiKey: "AIzaSyBOucd9FgHHfjYPSJBEPqbGacJU57wxCk8",
+        authDomain: "coordenadas-417a1.firebaseapp.com",
+        databaseURL: "https://coordenadas-417a1-default-rtdb.firebaseio.com",
+        projectId: "coordenadas-417a1",
+        storageBucket: "coordenadas-417a1.appspot.com",
+        messagingSenderId: "935408631511",
+        appId: "1:935408631511:web:efbe6a173b8312ab867a92",
+      };
+
+      // Initialize Firebase
+      const app = initializeApp(firebaseConfig);
+      const auth = getAuth();
+      auth.languageCode = "es";
+      const provider = new GoogleAuthProvider();
+
+      let currentUser;
+      async function login() {
+        await signInWithPopup(auth, provider)
+          .then((result) => {
+            // This gives you a Google Access Token. You can use it to access the Google API.
+            const credential = GoogleAuthProvider.credentialFromResult(result);
+            const token = credential.accessToken;
+            // The signed-in user info.
+            //console.log(result.user);
+            currentUser = result.user;
+            currentUser = result.user;
+            console.log(currentUser.uid);
+            writeUserData(currentUser.uid, {x: 0, z: 0});
+            
+            //console.log(user);
+            // ...
+          })
+          .catch((error) => {
+            // Handle Errors here.
+            //const errorCode = error.code;
+            const errorMessage = error.message;
+            // The email of the user's account used.
+            //const email = error.customData.email;
+            // The AuthCredential type that was used.
+            //const credential = GoogleAuthProvider.credentialFromError(error);
+            // ...
+            console.error("errorMessage");
+          });
+      }
+
+      const buttonLogin = document.getElementById("button-login");
+      const buttonLoginOut = document.getElementById("button-log-out");
+      buttonLogin.addEventListener("click", async (e) => {
+        const user = await login();
+      });
+
+      buttonLoginOut.addEventListener("click", async (e) => {
+        await signOut(auth)
+          .then(() => {
+            // Sign-out successful.
+            console.log("Sign-out successful");
+          })
+          .catch((error) => {
+            // An error happened.
+            console.log("An error happened");
+          });
+      });
+
+  
+
+      // SCENE
+      const scene = new THREE.Scene();
+      //scene.background = new THREE.Color("#34495E");
+      const loader = new THREE.TextureLoader();
+      loader.load("/Imagenes/blue_sky.jpg", function (texture) {
+        scene.background = texture;
+      });
+
+      const camera = new THREE.PerspectiveCamera(
+        60,
+        window.innerWidth / window.innerHeight
+      );
+
+      camera.position.set(0, 30, 15);
+
+      // RENDERER
+      const renderer = new THREE.WebGLRenderer();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      // Lights
+      const hemispherelight = new THREE.HemisphereLight(0xffffbb, 0x080820, 1);
+      scene.add(hemispherelight);
+
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+      directionalLight.position.set(10, 50, 0);
+      directionalLight.castShadow = true;
+
+      const cube1Geometry = new THREE.BoxGeometry(1, 1, 1);
+      const cube1Material = new THREE.MeshPhongMaterial({ color: "aqua" });
+      const cube1 = new THREE.Mesh(cube1Geometry, cube1Material);
+      cube1.castShadow = true;
+      cube1.position.set(3, 0, 0);
+
+      let cube1BB = new THREE.Box3();
+      cube1BB.setFromObject(cube1);
+      //console.log(cube1BB);
+
+      // const bb = new THREE.BoxGeometry(1.5, 1.5, 1.5);
+      // const object = new THREE.Mesh(bb, new THREE.MeshBasicMaterial(0xff0000));
+      // object.position.set(3, 0, 0);
+      // const box = new THREE.BoxHelper(object, 0xff0000);
+
+      const cube2Geometry = new THREE.BoxGeometry(1, 1, 1);
+      const cube2Material = new THREE.MeshPhongMaterial({ color: "coral" });
+      const cube2 = new THREE.Mesh(cube2Geometry, cube2Material);
+      cube2.position.set(-3, 0, 0);
+      cube2.castShadow = true;
+      //cube2.receiveShadow = true;
+
+      let cube2BB = new THREE.Box3();
+      cube2BB.setFromObject(cube2);
+
+      
+
+      //let sphereBB = new THREE.Sphere(sphere.position, 1);
+
+      // Plane
+      const planeGeometry = new THREE.PlaneGeometry(500, 500);
+      var texture = new THREE.TextureLoader().load(
+        "./Imagenes/Tierra-de-desierto.jpg"
+      );
+      const planeMaterial = new THREE.MeshPhongMaterial({ map: texture });
+      const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+      plane.position.set(15, -0.5, 15);
+      plane.receiveShadow = true;
+      plane.rotateX(-Math.PI / 2);
+
+      // Adding to scene
+      scene.add(plane, hemispherelight, directionalLight);
+
+      document.onkeydown = function (e) {
+          
+          const obj8 = scene.getObjectByName(currentUser.uid);
+       
+         //let obj4 = gltf4.scene;
+         
+         if (e.keyCode === 37) {
+          obj8.position.x -= 1;
+        }
+        if (e.keyCode === 39) {
+          obj8.position.x += 1;
+        }
+        if (e.keyCode === 38) {
+          obj8.position.z -= 1;
+        }
+        if (e.keyCode === 40) {
+          obj8.position.z += 1;
+        }
+        writeUserData(currentUser.uid, obj8.position);
+      };
+
+      const cameraControl = new OrbitControls(camera, renderer.domElement);
+
+      /*function checkCollisions() {
+        if (cube2BB.intersectsSphere(sphereBB)) {
+          sphere.material.wireframe = true;
+        } else {
+          sphere.material.wireframe = false;
+        }
+
+        if (cube2BB.containsBox(cube1BB)) {
+          cube1.scale.y = 3;
+        } else {
+          cube1.scale.y = 1;
+        }
+
+        if (cube2BB.intersectsBox(cube1BB)) {
+          cube1.material.color = new THREE.Color("red");
+        } else {
+          cube1.material.color = new THREE.Color("aqua");
+        }
+      }*/
+
+      // Resize
+
+      function resize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.render(scene, camera);
+      }
+
+      window.addEventListener("resize", resize);
+
+      // Loaders
+      const loaderGLTF = new GLTFLoader();
+      loaderGLTF.load("Zombie.glb", function (gltf) {
+        let obj = gltf.scene;
+        /*document.onkeydown = function (e) {
+          //tecla W
+          if (e.keyCode === 87) {
+            obj.position.z -= 2;
+            obj.rotation.y = 90;
+          }
+          //tecla S
+          if (e.keyCode === 83) {
+            obj.position.z += 2;
+            obj.rotation.y = 200;
+          }
+          //tecla A
+          if (e.keyCode === 65) {
+            obj.position.x -= 2;
+            obj.rotation.y = 180;
+          }
+          //tecla D
+          if (e.keyCode === 68) {
+            obj.position.x += 2;
+            obj.rotation.y = 290;
+          }
+        };*/
+
+        obj.position.set(5, 0.02, 5);
+        obj.scale.set(0.1, 0.1, 0.1);
+        gltf.scene.traverse(function (nodeZombie) {
+          if (nodeZombie.isMesh) {
+            nodeZombie.castShadow = true;
+          }
+        });
+
+        scene.add(obj);
+      });
+
+      /*const loaderGLTF2 = new GLTFLoader();
+      loaderGLTF2.load(
+        "House.glb",
+        function (gltf2) {
+          let obj2 = gltf2.scene;
+          obj2.position.set(60, 0.02, 60);
+          obj2.scale.set(1.7, 1.7, 1.7);
+          gltf2.scene.traverse( function( nodeHouse ) {
+
+if ( nodeHouse.isMesh ) { nodeHouse.castShadow = true; }
+
+} );
+          scene.add(obj2);
+        }
+      );
+
+   
+      
+      const loaderGLTF3 = new GLTFLoader();
+      loaderGLTF3.load(
+        "House2.glb",
+        function (gltf3) {
+          let obj3 = gltf3.scene;
+          obj3.position.set(60, 0.02, -50);
+          obj3.scale.set(3.9, 3.9, 3.9);
+          gltf3.scene.traverse( function( nodeHouse2 ) {
+
+if ( nodeHouse2.isMesh ) { nodeHouse2.castShadow = true; }
+
+} );
+     
+          scene.add(obj3);
+        }
+      );*/
+
+      const loaderGLTF8 = new GLTFLoader();
+      loaderGLTF8.load("Soldado.glb", function (gltf8) {
+        let obj8 = gltf8.scene;
+        /*document.onkeyup = function (e2) {
+          //flecha arriba
+          if (e2.keyCode === 38) {
+            obj8.position.z -= 2;
+            obj8.rotation.y = 90;
+          }
+          //flecha abajo
+          if (e2.keyCode === 40) {
+            obj8.position.z += 2;
+            obj8.rotation.y = 200;
+          }
+          //flecha izquierda
+          if (e2.keyCode === 37) {
+            obj8.position.x -= 2;
+            obj8.rotation.y = 180;
+          }
+          //flecha derecha
+          if (e2.keyCode === 39) {
+            obj8.position.x += 2;
+            obj8.rotation.y = 290;
+          }
+        };*/
+        obj8.position.set(10, 0.5, 10);
+        obj8.rotation.set(0, 5, 0);
+        obj8.scale.set(4.3, 4.3, 4.3);
+        gltf8.scene.traverse(function (nodeSoldado) {
+          if (nodeSoldado.isMesh) {
+            nodeSoldado.castShadow = true;
+          }
+        });
+
+        scene.add(obj8);
+      });
+
+
+
+
+
+    
+
+      /*const loaderGLTF5 = new GLTFLoader();
+      loaderGLTF5.load(
+        "Cactus.glb",
+        function (gltf5) {
+          let obj5 = gltf5.scene;
+          obj5.position.set(10, 0.02, 7);
+          obj5.scale.set(0.2, 0.2, 0.2);
+          gltf5.scene.traverse( function( nodeCactus ) {
+
+if ( nodeCactus.isMesh ) { nodeCactus.castShadow = true; }
+
+} );
+     
+          scene.add(obj5);
+        }
+      );
+
+
+      const loaderGLTF6 = new GLTFLoader();
+      loaderGLTF6.load(
+        "Cactus2.glb",
+        function (gltf6) {
+          let obj6 = gltf6.scene;
+          obj6.position.set(15, 0.02, 14);
+          obj6.scale.set(0.9, 0.9, 0.9);
+          gltf6.scene.traverse( function( nodeCactus2 ) {
+
+if ( nodeCactus2.isMesh ) { nodeCactus2.castShadow = true; }
+
+} );
+     
+          scene.add(obj6);
+        }
+      );*/
+
+      const loaderGLTF7 = new GLTFLoader();
+      loaderGLTF7.load("Escopeta.glb", function (gltf7) {
+        let obj7 = gltf7.scene;
+        obj7.position.set(10, 5, 0);
+        obj7.rotation.set(0, 10, 0);
+        obj7.scale.set(2, 2, 2);
+        gltf7.scene.traverse(function (nodeEscopeta) {
+          if (nodeEscopeta.isMesh) {
+            nodeEscopeta.castShadow = true;
+          }
+        });
+
+        scene.add(obj7);
+      });
+
+      
+
+      /*const loaderGLTF9 = new GLTFLoader();
+      loaderGLTF9.load(
+        "bank_from_old_west.glb",
+        function (gltf9) {
+          let obj9 = gltf9.scene;
+          obj9.position.set(-101, 0.02, 60);
+          obj9.scale.set(3.9, 3.9, 3.9);
+          gltf9.scene.traverse( function( nodeBank ) {
+
+if ( nodeBank.isMesh ) { nodeBank.castShadow = true; }
+
+} );
+     
+          scene.add(obj9);
+        }
+      );*/
+
+      /*const loaderGLTF10 = new GLTFLoader();
+      loaderGLTF10.load(
+        "west_building-freepoly.org.glb",
+        function (gltf10) {
+          let obj10 = gltf10.scene;
+          obj10.position.set(-50, 0.02, 60);
+          obj10.scale.set(3.9, 3.9, 3.9);
+          gltf10.scene.traverse( function( nodeSaloon ) {
+
+if ( nodeSaloon.isMesh ) { nodeSaloon.castShadow = true; }
+
+} );
+     
+          scene.add(obj10);
+        }
+      );*/
+
+
+      const db = getDatabase();
+      const starCountRef = ref(db, "jugadores");
+
+      onValue(starCountRef, (snapshot) => {
+  const data = snapshot.val();
+  console.log(data);
+
+  Object.entries(data).forEach(([key, value]) => {
+  const jugador = scene.getObjectByName(key);
+if(!jugador){
+  //Agregar a la escena
+  const loaderGLTF8 = new GLTFLoader();
+      loaderGLTF8.load("wooden_box_free.glb", function (gltf8) {
+        let obj8 = gltf8.scene;
+        obj8.scale.set(0.3, 0.3, 0.3);
+        obj8.position.set(value.x, 0.5, value.x);
+        obj8.name= key;
+        scene.add(obj8);
+      });
+
+
+
+
+  /*const loaderGLTF4 = new GLTFLoader();
+      loaderGLTF4.load("wooden_box_free.glb", function (gltf4) {
+        let obj4 = gltf4.scene;
+        obj4.scale.set(0.2, 0.2, 0.2),
+        obj4.position.set(value.x, 5, value.x);
+        obj4.name= key;
+        scene.add(obj4);
+      });*/
+
+     
+
+  /*const sphereGeometry = new THREE.SphereGeometry(1);
+      const sphereMaterial = new THREE.MeshPhongMaterial();
+      const sphere = new THREE.Mesh(sphereGeometry, sphereMaterial);
+      sphere.castShadow = true;
+      sphere.position.set(value.x, 5, value.x);
+      sphere.material.color = new THREE.Color(Math.random() * 0xffffff);
+      sphere.name= key;
+      scene.add(sphere);*/
+}
+scene.getObjectByName(key).position.x = value.x;
+scene.getObjectByName(key).position.z = value.z;
+  });
+
+});
+
+
+function writeUserData(userId, position) {
+  
+  set(ref(db, "jugadores/" + userId), { x: position.x, z: position.z });
+}
+
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    // User is signed in, see docs for a list of available properties
+    // https://firebase.google.com/docs/reference/js/firebase.User
+    currentUser = user.uid;
+    // ...
+  } else {
+    // User is signed out
+    console.log ("signed out");
+    // ...
+  }
+});
+
+      function animate() {
+        cube2BB
+          .copy(cube2.geometry.boundingBox)
+          .applyMatrix4(cube2.matrixWorld);
+
+        //checkCollisions();
+        renderer.render(scene, camera);
+        requestAnimationFrame(animate);
+      }
+
+      animate();
+    </script>
+  </body>
+</html>
